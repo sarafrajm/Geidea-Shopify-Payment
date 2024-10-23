@@ -22,7 +22,7 @@
         <form class="key-form" id="key-form">
             <div class="form-group">
                 <label for="region">Select an Region:</label>
-                <select id="region" required>
+                <select id="region" required disabled>
                     <option value="KSA">KSA</option>
                     <option value="UAE">UAE</option>
                     <option value="EGP">EGP</option>
@@ -30,13 +30,13 @@
             </div>
             <div class="form-group">
                 <label for="publicKey">Merchant Public Key:</label>
-                <input type="text" id="publicKey" required />
+                <input type="text" id="publicKey" required disabled />
             </div>
             <div class="form-group">
                 <label for="secretKey">Merchant Secret Key:</label>
-                <input type="text" id="secretKey" required />
+                <input type="text" id="secretKey" required disabled />
             </div>
-            <button type="submit" class="submit-button" id="submit-button">Submit</button>
+            <button type="submit" class="submit-button" id="submit-button" disabled>Submit</button>
         </form>
     </div>
 </body>

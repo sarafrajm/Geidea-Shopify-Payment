@@ -4,6 +4,7 @@ document.getElementById('key-form').addEventListener('submit', async function (e
     const queryParams = new URLSearchParams(queryString);
     const shop = queryParams.get('shop');
     const state = queryParams.get('state');
+    const signature = queryParams.get('signature');
 
     const region = document.getElementById('region').value;
     const publicKey = document.getElementById('publicKey').value;
@@ -11,7 +12,7 @@ document.getElementById('key-form').addEventListener('submit', async function (e
     console.log(shop, state, region, publicKey, secretKey);
 
     try {
-        const response = await fetch(`/api/onboard?shop=${shop}&state=${state}`, {
+        const response = await fetch(`/api/onboard?shop=${shop}&state=${state}&signature=${signature}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -21,6 +22,14 @@ document.getElementById('key-form').addEventListener('submit', async function (e
 
         const result = await response.json();
         console.log(result);
+        if (result.status == 'Success') {
+            document.getElementById('submit-button').innerText = 'Update';
+            enableAllField();
+            alert("Successfully Update!");
+        } else if (result.status == 'Failed') {
+            disableAllField();
+            return showError(result.message);
+        }
     } catch (error) {
         console.error('Error:', error);
     }
@@ -68,11 +77,28 @@ function disableAllField() {
     submitBtn.style.cursor = 'not-allowed';
 }
 
+function enableAllField() {
+    const region = document.getElementById('region');
+    const publicKey = document.getElementById('publicKey');
+    const secretKey = document.getElementById('secretKey');
+    const submitBtn = document.getElementById('submit-button');
+    region.disabled = false;
+    publicKey.disabled = false;
+    secretKey.disabled = false;
+    submitBtn.disabled = false;
+    submitBtn.style.backgroundColor = '#007bff';
+    region.style.cursor = 'pointer';
+    publicKey.style.cursor = 'text';
+    secretKey.style.cursor = 'text';
+    submitBtn.style.cursor = 'pointer';
+}
+
 window.onload = async function () {
     const queryString = window.location.search;
     const queryParams = new URLSearchParams(queryString);
     const shop = queryParams.get('shop');
     const state = queryParams.get('state');
+    const signature = queryParams.get('signature');
 
     const region = document.getElementById('region');
     const publicKey = document.getElementById('publicKey');
@@ -81,7 +107,7 @@ window.onload = async function () {
 
     errorModel();
 
-    if (!state) {
+    if (!state || !signature) {
         disableAllField();
         return showError('Invalid Request');
     }
@@ -91,7 +117,7 @@ window.onload = async function () {
     }
 
     try {
-        const jsonData = await fetch(`/api/onboard?shop=${shop}&state=${state}`, {
+        const jsonData = await fetch(`/api/onboard?shop=${shop}&state=${state}&signature=${signature}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -100,10 +126,16 @@ window.onload = async function () {
         const data = await jsonData.json();
         console.log(data);
         if (data.status == 'Success') {
-            region.value = data.region;
-            publicKey.value = data.publicKey;
-            secretKey.value = data.secretKey;
-            submitBtn.innerText = 'Update';
+            enableAllField();
+            if (data.region && data.publicKey && data.secretKey) {
+                region.value = data.region;
+                publicKey.value = data.publicKey;
+                secretKey.value = data.secretKey;
+                submitBtn.innerText = 'Update';
+            }
+        } else if (data.status == 'Failed') {
+            disableAllField();
+            return showError(data.message);
         }
     } catch (err) {
         console.log(err);

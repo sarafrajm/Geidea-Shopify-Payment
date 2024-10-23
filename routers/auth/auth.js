@@ -1,6 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
 const { insertOrUpdateAuthData, getAuthData, insertOrUpdateOAuthData, insertOrUpdateTokenData, getTokenData, insertOrUpdateMerchantData, getMerchantData } = require("../../db-operation/db");
+const { createSignature, validateSignature } = require('../../utils/utils');
 
 const router = new express.Router();
 
@@ -107,12 +108,14 @@ router.get('/oauth', async (req, res) => {
     const client_id = process.env.SHOPIFY_API_KEY;
     const client_secret = process.env.SHOPIFY_API_SECRET;
     const authorization_code = req.query.code;
-    const jsonData = await fetch(`https://${shop}/admin/oauth/access_token?client_id=${client_id}&client_secret=${client_secret}&code=${authorization_code}`, {
-        method: "POST"
-    })
+    const { signature, timestamp } = createSignature(req.query.state, process.env.SHOPIFY_API_SECRET);
     try {
+        const jsonData = await fetch(`https://${shop}/admin/oauth/access_token?client_id=${client_id}&client_secret=${client_secret}&code=${authorization_code}`, {
+            method: "POST"
+        })
         const data = await jsonData.json();
-        if (!(await insertOrUpdateTokenData({ ...data, shop: shop, state: req.query.state }))) {
+
+        if (!(await insertOrUpdateTokenData({ ...data, shop: shop, state: req.query.state, signature: signature, timestamp: timestamp }))) {
             return res.status(400).json({
                 status: "Failed",
                 message: "Error on Data Insert"
@@ -125,29 +128,38 @@ router.get('/oauth', async (req, res) => {
         })
     }
 
-    res.redirect(`${req.protocol + '://' + req.get('host')}?shop=${shop}&state=${req.query.state}`);
+    res.redirect(`${req.protocol + '://' + req.get('host')}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
 });
 
 router.get('/onboard', async (req, res) => {
-    if (!req.query || !req.query.shop || !req.query.state) {
+    if (!req.query || !req.query.shop || !req.query.state || !req.query.signature) {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
         })
     }
 
-    if (!(await getTokenData(req.query.shop, req.query.state))) {
+    const tokenData = await getTokenData(req.query.shop, req.query.state, req.query.signature);
+
+    if (!tokenData) {
         return res.status(404).json({
             status: "Failed",
             message: "Invalid Request"
         })
     }
 
+    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, tokenData.signature, tokenData.timestamp)) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Session Expire"
+        })
+    }
+
     const merchantData = await getMerchantData(req.query.shop);
 
     if (!merchantData) {
-        return res.status(404).json({
-            status: "Failed",
+        return res.json({
+            status: "Success",
             message: "Data not found"
         })
     }
@@ -161,18 +173,25 @@ router.get('/onboard', async (req, res) => {
 });
 
 router.post('/onboard', async (req, res) => {
-    if (!req.query || !req.body || !req.query.shop || !req.query.state || !req.body.region || !req.body.publicKey || !req.body.secretKey) {
+    if (!req.query || !req.body || !req.query.shop || !req.query.state || !req.query.signature || !req.body.region || !req.body.publicKey || !req.body.secretKey) {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
         })
     }
 
-    const tokenData = await getTokenData(req.query.shop, req.query.state);
+    const tokenData = await getTokenData(req.query.shop, req.query.state, req.query.signature);
     if (!tokenData) {
         return res.status(404).json({
             status: "Failed",
             message: "Invalid Request"
+        })
+    }
+
+    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, tokenData.signature, tokenData.timestamp)) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Session Expire"
         })
     }
 

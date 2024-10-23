@@ -36,7 +36,9 @@ const connectDB = async () => {
     shop VARCHAR(255) NOT NULL,
     access_token VARCHAR(255) NOT NULL,
     scope VARCHAR(255) NOT NULL,
-    state VARCHAR(255) NOT NULL
+    state VARCHAR(255) NOT NULL,
+    signature VARCHAR(255) NOT NULL,
+    timestamp VARCHAR(255) NOT NULL
   );`
 
     const query4 = `CREATE TABLE IF NOT EXISTS merchants (
@@ -207,11 +209,13 @@ async function insertTokenData(data) {
     const access_token = data.access_token || '';
     const scope = data.scope || '';
     const state = data.state || '';
+    const signature = data.signature || '';
+    const timestamp = data.timestamp || '';
 
-    const query = `INSERT INTO token (shop, access_token, scope, state) VALUES (?, ?, ?, ?)`;
+    const query = `INSERT INTO token (shop, access_token, scope, state, signature, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
 
     try {
-        await db.execute(query, [shop, access_token, scope, state]);
+        await db.execute(query, [shop, access_token, scope, state, signature, timestamp]);
         db.end();
     } catch (err) {
         console.error('Error inserting data:', err);
@@ -228,19 +232,21 @@ async function insertOrUpdateTokenData(data) {
     const access_token = data.access_token || '';
     const scope = data.scope || '';
     const state = data.state || '';
+    const signature = data.signature || '';
+    const timestamp = data.timestamp || '';
 
     const checkQuery = `SELECT COUNT(*) as count FROM token WHERE shop = ?`;
 
-    const insertQuery = `INSERT INTO token (shop, access_token, scope, state) VALUES (?, ?, ?, ?)`;
-    const updateQuery = `UPDATE token SET access_token = ?, scope = ?, state = ? WHERE shop = ?`;
+    const insertQuery = `INSERT INTO token (shop, access_token, scope, state, signature, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
+    const updateQuery = `UPDATE token SET access_token = ?, scope = ?, state = ?, signature = ?, timestamp = ? WHERE shop = ?`;
 
     try {
         const [rows] = await db.execute(checkQuery, [shop]);
 
         if (rows[0].count > 0) {
-            await db.execute(updateQuery, [access_token, scope, state, shop]);
+            await db.execute(updateQuery, [access_token, scope, state, signature, timestamp, shop]);
         } else {
-            await db.execute(insertQuery, [shop, access_token, scope, state]);
+            await db.execute(insertQuery, [shop, access_token, scope, state, signature, timestamp]);
         }
 
         db.end();
@@ -253,20 +259,22 @@ async function insertOrUpdateTokenData(data) {
 }
 
 
-async function getTokenData(shop, state) {
+async function getTokenData(shop, state, signature) {
     const db = await createConnection();
 
-    const query = `SELECT * FROM token WHERE shop = ? AND state = ?`;
+    const query = `SELECT * FROM token WHERE shop = ? AND state = ? AND signature = ?`;
 
     try {
-        const [results] = await db.execute(query, [shop, state]);
+        const [results] = await db.execute(query, [shop, state, signature]);
         if (results.length > 0) {
             const response = {
                 id: results[0].id,
                 shop: results[0].shop,
                 access_token: results[0].access_token,
                 scope: results[0].scope,
-                state: results[0].state
+                state: results[0].state,
+                signature: results[0].signature,
+                timestamp: results[0].timestamp
             };
             db.end();
             return response;
