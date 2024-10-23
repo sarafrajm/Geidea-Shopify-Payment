@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const { insertAuthData, getAuthData, insertOAuthData, insertTokenData, getTokenData, insertMerchantData, getMerchantData } = require("../../db-operation/db");
+const { insertOrUpdateAuthData, getAuthData, insertOrUpdateOAuthData, insertOrUpdateTokenData, getTokenData, insertOrUpdateMerchantData, getMerchantData } = require("../../db-operation/db");
 
 const router = new express.Router();
 
@@ -48,7 +48,7 @@ router.get('/auth', async (req, res) => {
     const scopes = process.env.SHOPIFY_API_SCOPES;
     const redirect_uri = req.protocol + '://' + req.get('host') + "/api/oauth";
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    if (!(await insertAuthData({ ...req.query, state: nonce }))) {
+    if (!(await insertOrUpdateAuthData({ ...req.query, state: nonce }))) {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
@@ -96,7 +96,7 @@ router.get('/oauth', async (req, res) => {
         })
     }
 
-    if (!(await insertOAuthData(req.query))) {
+    if (!(await insertOrUpdateOAuthData(req.query))) {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
@@ -112,7 +112,7 @@ router.get('/oauth', async (req, res) => {
     })
     try {
         const data = await jsonData.json();
-        if (!(await insertTokenData({ ...data, shop: shop, state: req.query.state }))) {
+        if (!(await insertOrUpdateTokenData({ ...data, shop: shop, state: req.query.state }))) {
             return res.status(400).json({
                 status: "Failed",
                 message: "Error on Data Insert"
@@ -143,7 +143,7 @@ router.get('/onboard', async (req, res) => {
         })
     }
 
-    const merchantData = await getMerchantData(req.query.shop, req.query.state);
+    const merchantData = await getMerchantData(req.query.shop);
 
     if (!merchantData) {
         return res.status(404).json({
@@ -154,8 +154,9 @@ router.get('/onboard', async (req, res) => {
 
     return res.json({
         status: "Success",
-        publicKey: maskInput(merchantData.publicKey),
-        secretKey: maskInput(merchantData.secretKey)
+        region: merchantData.region,
+        publicKey: merchantData.publicKey,
+        secretKey: merchantData.secretKey
     })
 });
 
@@ -171,11 +172,11 @@ router.post('/onboard', async (req, res) => {
     if (!tokenData) {
         return res.status(404).json({
             status: "Failed",
-            message: "Data not found"
+            message: "Invalid Request"
         })
     }
 
-    if (await insertMerchantData({
+    if (await insertOrUpdateMerchantData({
         shop: req.query.shop,
         access_token: tokenData.access_token,
         scope: tokenData.scope,
@@ -186,8 +187,9 @@ router.post('/onboard', async (req, res) => {
     })) {
         return res.json({
             status: "Success",
-            publicKey: maskInput(req.body.publicKey),
-            secretKey: maskInput(req.body.secretKey)
+            region: req.body.region,
+            publicKey: req.body.publicKey,
+            secretKey: req.body.secretKey
         })
     } else {
         return res.status(400).json({
@@ -196,16 +198,6 @@ router.post('/onboard', async (req, res) => {
         })
     }
 });
-
-function maskInput(input) {
-    if (input.length <= 8) {
-        return input;
-    }
-    const firstPart = input.slice(0, 3);
-    const lastPart = input.slice(-5);
-    const maskedPart = '*'.repeat(input.length - 8);
-    return firstPart + maskedPart + lastPart;
-}
 
 function isValidShopifyURL(shop) {
     const regex1 = /^https?\:\/\/[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com\/?/

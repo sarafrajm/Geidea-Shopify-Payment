@@ -65,22 +65,49 @@ const connectDB = async () => {
 async function insertAuthData(data) {
     const db = await createConnection();
 
-    // Default values to empty string if not present in the passed object
     const hmac = data.hmac || '';
     const host = data.host || '';
     const shop = data.shop || '';
     const state = data.state || '';
     const timestamp = data.timestamp || '';
 
-    // Create the SQL query
     const query = `INSERT INTO auth (hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?)`;
 
-    // Execute the query
     try {
         await db.execute(query, [hmac, host, shop, state, timestamp]);
         db.end();
     } catch (err) {
         console.error('Error inserting data:', err);
+        db.end();
+        return false;
+    }
+    return true;
+}
+async function insertOrUpdateAuthData(data) {
+    const db = await createConnection();
+
+    const hmac = data.hmac || '';
+    const host = data.host || '';
+    const shop = data.shop || '';
+    const state = data.state || '';
+    const timestamp = data.timestamp || '';
+
+    const checkQuery = `SELECT COUNT(*) as count FROM auth WHERE shop = ?`;
+    const insertQuery = `INSERT INTO auth (hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?)`;
+    const updateQuery = `UPDATE auth SET hmac = ?, host = ?, state = ?, timestamp = ? WHERE shop = ?`;
+
+    try {
+        const [rows] = await db.execute(checkQuery, [shop]);
+
+        if (rows[0].count > 0) {
+            await db.execute(updateQuery, [hmac, host, state, timestamp, shop]);
+        } else {
+            await db.execute(insertQuery, [hmac, host, shop, state, timestamp]);
+        }
+
+        db.end();
+    } catch (err) {
+        console.error('Error inserting or updating data:', err);
         db.end();
         return false;
     }
@@ -119,7 +146,6 @@ async function getAuthData(shop, state) {
 async function insertOAuthData(data) {
     const db = await createConnection();
 
-    // Default values to empty string if not present in the passed object
     const code = data.code || '';
     const hmac = data.hmac || '';
     const host = data.host || '';
@@ -127,10 +153,8 @@ async function insertOAuthData(data) {
     const state = data.state || '';
     const timestamp = data.timestamp || '';
 
-    // Create the SQL query
     const query = `INSERT INTO oauth (code, hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
 
-    // Execute the query
     try {
         await db.execute(query, [code, hmac, host, shop, state, timestamp]);
         db.end();
@@ -142,19 +166,50 @@ async function insertOAuthData(data) {
     return true;
 }
 
+async function insertOrUpdateOAuthData(data) {
+    const db = await createConnection();
+
+    const code = data.code || '';
+    const hmac = data.hmac || '';
+    const host = data.host || '';
+    const shop = data.shop || '';
+    const state = data.state || '';
+    const timestamp = data.timestamp || '';
+
+    const checkQuery = `SELECT COUNT(*) as count FROM oauth WHERE shop = ?`;
+
+    const insertQuery = `INSERT INTO oauth (code, hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
+    const updateQuery = `UPDATE oauth SET code = ?, hmac = ?, host = ?, state = ?, timestamp = ? WHERE shop = ?`;
+
+    try {
+        const [rows] = await db.execute(checkQuery, [shop]);
+
+        if (rows[0].count > 0) {
+            await db.execute(updateQuery, [code, hmac, host, state, timestamp, shop]);
+        } else {
+            await db.execute(insertQuery, [code, hmac, host, shop, state, timestamp]);
+        }
+
+        db.end();
+    } catch (err) {
+        console.error('Error inserting or updating data:', err);
+        db.end();
+        return false;
+    }
+    return true;
+}
+
+
 async function insertTokenData(data) {
     const db = await createConnection();
 
-    // Default values to empty string if not present in the passed object
     const shop = data.shop || '';
     const access_token = data.access_token || '';
     const scope = data.scope || '';
     const state = data.state || '';
 
-    // Create the SQL query
     const query = `INSERT INTO token (shop, access_token, scope, state) VALUES (?, ?, ?, ?)`;
 
-    // Execute the query
     try {
         await db.execute(query, [shop, access_token, scope, state]);
         db.end();
@@ -165,6 +220,38 @@ async function insertTokenData(data) {
     }
     return true;
 }
+
+async function insertOrUpdateTokenData(data) {
+    const db = await createConnection();
+
+    const shop = data.shop || '';
+    const access_token = data.access_token || '';
+    const scope = data.scope || '';
+    const state = data.state || '';
+
+    const checkQuery = `SELECT COUNT(*) as count FROM token WHERE shop = ?`;
+
+    const insertQuery = `INSERT INTO token (shop, access_token, scope, state) VALUES (?, ?, ?, ?)`;
+    const updateQuery = `UPDATE token SET access_token = ?, scope = ?, state = ? WHERE shop = ?`;
+
+    try {
+        const [rows] = await db.execute(checkQuery, [shop]);
+
+        if (rows[0].count > 0) {
+            await db.execute(updateQuery, [access_token, scope, state, shop]);
+        } else {
+            await db.execute(insertQuery, [shop, access_token, scope, state]);
+        }
+
+        db.end();
+    } catch (err) {
+        console.error('Error inserting or updating data:', err);
+        db.end();
+        return false;
+    }
+    return true;
+}
+
 
 async function getTokenData(shop, state) {
     const db = await createConnection();
@@ -197,7 +284,6 @@ async function getTokenData(shop, state) {
 async function insertMerchantData(data) {
     const db = await createConnection();
 
-    // Default values to empty string if not present in the passed object
     const shop = data.shop || '';
     const access_token = data.access_token || '';
     const scope = data.scope || '';
@@ -206,10 +292,8 @@ async function insertMerchantData(data) {
     const secretKey = data.secretKey || '';
     const state = data.state || '';
 
-    // Create the SQL query
     const query = `INSERT INTO merchants (shop, access_token, scope, region, publicKey, secretKey, state) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-    // Execute the query
     try {
         await db.execute(query, [shop, access_token, scope, region, publicKey, secretKey, state]);
         db.end();
@@ -221,14 +305,47 @@ async function insertMerchantData(data) {
     return true;
 }
 
-
-async function getMerchantData(shop, state) {
+async function insertOrUpdateMerchantData(data) {
     const db = await createConnection();
 
-    const query = `SELECT * FROM merchants WHERE shop = ? AND state = ?`;
+    const shop = data.shop || '';
+    const access_token = data.access_token || '';
+    const scope = data.scope || '';
+    const region = data.region || '';
+    const publicKey = data.publicKey || '';
+    const secretKey = data.secretKey || '';
+    const state = data.state || '';
+
+    const checkQuery = `SELECT COUNT(*) as count FROM merchants WHERE shop = ?`;
+
+    const insertQuery = `INSERT INTO merchants (shop, access_token, scope, region, publicKey, secretKey, state) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    const updateQuery = `UPDATE merchants SET access_token = ?, scope = ?, region = ?, publicKey = ?, secretKey = ?, state = ? WHERE shop = ?`;
 
     try {
-        const [results] = await db.execute(query, [shop, state]);
+        const [rows] = await db.execute(checkQuery, [shop]);
+
+        if (rows[0].count > 0) {
+            await db.execute(updateQuery, [access_token, scope, region, publicKey, secretKey, state, shop]);
+        } else {
+            await db.execute(insertQuery, [shop, access_token, scope, region, publicKey, secretKey, state]);
+        }
+
+        db.end();
+    } catch (err) {
+        console.error('Error inserting or updating data:', err);
+        db.end();
+        return false;
+    }
+    return true;
+}
+
+async function getMerchantData(shop) {
+    const db = await createConnection();
+
+    const query = `SELECT * FROM merchants WHERE shop = ?`;
+
+    try {
+        const [results] = await db.execute(query, [shop]);
         if (results.length > 0) {
             const response = {
                 id: results[0].id,
@@ -253,4 +370,17 @@ async function getMerchantData(shop, state) {
     }
 }
 
-module.exports = { connectDB, insertAuthData, getAuthData, insertOAuthData, insertTokenData, getTokenData, insertMerchantData, getMerchantData };
+module.exports = {
+    connectDB,
+    insertAuthData,
+    insertOrUpdateAuthData,
+    getAuthData,
+    insertOAuthData,
+    insertOrUpdateOAuthData,
+    insertTokenData,
+    insertOrUpdateTokenData,
+    getTokenData,
+    insertMerchantData,
+    insertOrUpdateMerchantData,
+    getMerchantData
+};

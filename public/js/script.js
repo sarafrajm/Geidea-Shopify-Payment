@@ -100,6 +100,7 @@ window.onload = async function () {
         const data = await jsonData.json();
         console.log(data);
         if (data.status == 'Success') {
+            region.value = data.region;
             publicKey.value = data.publicKey;
             secretKey.value = data.secretKey;
             submitBtn.innerText = 'Update';
