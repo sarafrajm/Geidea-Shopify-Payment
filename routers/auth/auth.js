@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const { insertAuthData, getAuthData, insertOAuthData } = require("../../db-operation/db");
+const { insertAuthData, getAuthData, insertOAuthData, insertTokenData, getTokenData, insertMerchantData, getMerchantData } = require("../../db-operation/db");
 
 const router = new express.Router();
 
@@ -48,7 +48,7 @@ router.get('/auth', async (req, res) => {
     const scopes = process.env.SHOPIFY_API_SCOPES;
     const redirect_uri = req.protocol + '://' + req.get('host') + "/api/oauth";
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    if (!insertAuthData({ ...req.query, state: nonce })) {
+    if (!(await insertAuthData({ ...req.query, state: nonce }))) {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
@@ -56,7 +56,7 @@ router.get('/auth', async (req, res) => {
     }
     const redirectUrl = `https://${shop}/admin/oauth/authorize?client_id=${client_id}&scope=${scopes}&redirect_uri=${redirect_uri}&state=${nonce}`;
     res.redirect(redirectUrl);
-})
+});
 
 router.get('/oauth', async (req, res) => {
     if (!req.query || !req.query.hmac || !req.query.shop || !req.query.state || !req.query.code) {
@@ -66,7 +66,7 @@ router.get('/oauth', async (req, res) => {
         })
     }
 
-    if (!getAuthData(req.query.shop, req.query.state)) {
+    if (!(await getAuthData(req.query.shop, req.query.state))) {
         return res.status(404).json({
             status: "Failed",
             message: "Data not found"
@@ -96,7 +96,7 @@ router.get('/oauth', async (req, res) => {
         })
     }
 
-    if (!insertOAuthData(req.query)) {
+    if (!(await insertOAuthData(req.query))) {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
@@ -112,13 +112,100 @@ router.get('/oauth', async (req, res) => {
     })
     try {
         const data = await jsonData.json();
-        console.log(data);
+        if (!(await insertTokenData({ ...data, shop: shop, state: req.query.state }))) {
+            return res.status(400).json({
+                status: "Failed",
+                message: "Error on Data Insert"
+            })
+        }
     } catch (e) {
-
+        return res.status(500).json({
+            status: "Failed",
+            message: "Internal Server Error"
+        })
     }
 
-    res.redirect(process.env.SHOPIFY_FRONTEND);
-})
+    res.redirect(`${req.protocol + '://' + req.get('host')}?shop=${shop}&state=${req.query.state}`);
+});
+
+router.get('/onboard', async (req, res) => {
+    if (!req.query || !req.query.shop || !req.query.state) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Invalid Query"
+        })
+    }
+
+    if (!(await getTokenData(req.query.shop, req.query.state))) {
+        return res.status(404).json({
+            status: "Failed",
+            message: "Invalid Request"
+        })
+    }
+
+    const merchantData = await getMerchantData(req.query.shop, req.query.state);
+
+    if (!merchantData) {
+        return res.status(404).json({
+            status: "Failed",
+            message: "Data not found"
+        })
+    }
+
+    return res.json({
+        status: "Success",
+        publicKey: maskInput(merchantData.publicKey),
+        secretKey: maskInput(merchantData.secretKey)
+    })
+});
+
+router.post('/onboard', async (req, res) => {
+    if (!req.query || !req.body || !req.query.shop || !req.query.state || !req.body.region || !req.body.publicKey || !req.body.secretKey) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Invalid Query"
+        })
+    }
+
+    const tokenData = await getTokenData(req.query.shop, req.query.state);
+    if (!tokenData) {
+        return res.status(404).json({
+            status: "Failed",
+            message: "Data not found"
+        })
+    }
+
+    if (await insertMerchantData({
+        shop: req.query.shop,
+        access_token: tokenData.access_token,
+        scope: tokenData.scope,
+        region: req.body.region,
+        publicKey: req.body.publicKey,
+        secretKey: req.body.secretKey,
+        state: req.query.state
+    })) {
+        return res.json({
+            status: "Success",
+            publicKey: maskInput(req.body.publicKey),
+            secretKey: maskInput(req.body.secretKey)
+        })
+    } else {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Error on Data Insert"
+        })
+    }
+});
+
+function maskInput(input) {
+    if (input.length <= 8) {
+        return input;
+    }
+    const firstPart = input.slice(0, 3);
+    const lastPart = input.slice(-5);
+    const maskedPart = '*'.repeat(input.length - 8);
+    return firstPart + maskedPart + lastPart;
+}
 
 function isValidShopifyURL(shop) {
     const regex1 = /^https?\:\/\/[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com\/?/
