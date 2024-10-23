@@ -40,5 +40,24 @@ function validateSignature(data, secretKey, signature, timestamp) {
     return validSignature === signature;
 }
 
+function getFormatedDate() {
+    // Generate timestamp
+    const now = new Date();
+    const month = String(now.getMonth() + 1);
+    const day = String(now.getDate());
+    const year = String(now.getFullYear());
+    const timestamp = `${month}/${day}/${year} ${now.toLocaleTimeString('en-US', { hour12: true })}`;
+    return timestamp;
+}
 
-module.exports = { createSignature, validateSignature, maskInput };
+function formatName(name1, name2) {
+    if (name1) {
+        return name1;
+    }
+    if (name2) {
+        return name2;
+    }
+    return null;
+}
+
+module.exports = { createSignature, validateSignature, maskInput, getFormatedDate, formatName };
