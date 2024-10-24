@@ -31,6 +31,7 @@ document.getElementById('key-form').addEventListener('submit', async function (e
             return showError(result.message);
         }
     } catch (error) {
+        alert('Something Went Wrong!')
         console.error('Error:', error);
     }
 });
@@ -45,15 +46,16 @@ function errorModel() {
     var modal = document.getElementById("errorModal");
     var closeBtn = document.getElementsByClassName("close")[0];
 
-    closeBtn.onclick = function () {
-        modal.style.display = "none";
-    }
+    // For Closing Error;
+    // closeBtn.onclick = function () {
+    //     modal.style.display = "none";
+    // }
 
-    window.onclick = function (event) {
-        if (event.target == modal) {
-            modal.style.display = "none";
-        }
-    }
+    // window.onclick = function (event) {
+    //     if (event.target == modal) {
+    //         modal.style.display = "none";
+    //     }
+    // }
 }
 
 function showError(msg) {
@@ -66,6 +68,10 @@ function disableAllField() {
     const publicKey = document.getElementById('publicKey');
     const secretKey = document.getElementById('secretKey');
     const submitBtn = document.getElementById('submit-button');
+    region.value = "";
+    publicKey.value = "";
+    secretKey.value = "";
+    submitBtn.innerHTML = "Submit";
     region.disabled = true;
     publicKey.disabled = true;
     secretKey.disabled = true;
@@ -101,6 +107,7 @@ window.onload = async function () {
     const signature = queryParams.get('signature');
 
     const region = document.getElementById('region');
+    region.value = "";
     const publicKey = document.getElementById('publicKey');
     const secretKey = document.getElementById('secretKey');
     const submitBtn = document.getElementById('submit-button');
@@ -138,6 +145,7 @@ window.onload = async function () {
             return showError(data.message);
         }
     } catch (err) {
-        console.log(err);
+        alert('Something Went Wrong!')
+        console.error(err);
     }
 }
