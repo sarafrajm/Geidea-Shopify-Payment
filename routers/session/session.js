@@ -1,6 +1,6 @@
 const express = require("express");
 const { getMerchantData } = require("../../db-operation/db");
-const { getCreteSessionUrl } = require("../../utils/region");
+const { getCreteSessionUrl, getHppUrl } = require("../../utils/region");
 const { getFormatedDate, formatName } = require("../../utils/utils");
 const router = new express.Router();
 
@@ -112,9 +112,14 @@ router.post("/session", async (req, res) => {
         body: JSON.stringify(sessionData)
     });
     const result = await response.json();
-    console.log(signature, '   ', merchantReferenceId);
 
-    res.json(result);
+    if (response.status == 200 && result.session?.id) {
+        res.status(200).json({
+            "redirect_url": getHppUrl(merchantData.region, result.session.id)
+        })
+    } else {
+        res.status(response.status).json(result);
+    }
 })
 
 module.exports = router;
