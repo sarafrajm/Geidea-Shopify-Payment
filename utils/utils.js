@@ -25,7 +25,7 @@ function createSignature(data, secretKey) {
 
 function validateSignature(data, secretKey, signature, timestamp) {
     const currentTime = Math.floor(Date.now() / 1000);
-    const fiveMinutes = 5 * 60;
+    const fiveMinutes = 3 * 60;
 
     if (currentTime - timestamp > fiveMinutes) {
         return false;
@@ -85,4 +85,15 @@ async function callGraphqlApi(shopDomain, accessToken, graphqlQuery, graphqlVari
 
 }
 
-module.exports = { createSignature, validateSignature, maskInput, getFormatedDate, formatName, callGraphqlApi };
+function converCountryCode2DigitTo3Digit(code) {
+    const upperCode = code.toUpperCase();
+    try {
+        const countries = require("i18n-iso-countries");
+        countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
+        return countries.alpha2ToAlpha3(upperCode) || upperCode;
+    } catch (err) {
+        return upperCode
+    }
+}
+
+module.exports = { createSignature, validateSignature, maskInput, getFormatedDate, formatName, callGraphqlApi, converCountryCode2DigitTo3Digit };

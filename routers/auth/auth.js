@@ -205,19 +205,19 @@ router.post("/onboard", async (req, res) => {
         state: req.query.state
     })) {
         const graphqlQuery = `
-        mutation paymentsAppConfigure($ready: Boolean!, $externalHandle: String!) {
-            paymentsAppConfigure(ready: $ready, externalHandle: $externalHandle) {
-                paymentsAppConfiguration {
-                    externalHandle
-                    ready
-                }
-                userErrors {
-                    field
-                    message
+            mutation paymentsAppConfigure($ready: Boolean!, $externalHandle: String!) {
+                paymentsAppConfigure(ready: $ready, externalHandle: $externalHandle) {
+                    paymentsAppConfiguration {
+                        externalHandle
+                        ready
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
                 }
             }
-        }
-    `;
+        `;
 
         const graphqlVariables = {
             "ready": true,

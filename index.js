@@ -1,13 +1,14 @@
 const dotenv = require("dotenv");
 const path = require("path");
 dotenv.config();
-const {connectDB} = require("./db-operation/db");
+const { connectDB } = require("./db-operation/db");
 
 const express = require("express");
 const cors = require("cors");
 const app = express();
 const authRouter = require("./routers/auth/auth");
 const sessionRouter = require("./routers/session/session");
+const callbackRouter = require("./routers/session/callback");
 
 connectDB();
 
@@ -20,6 +21,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api", authRouter);
 app.use("/api", sessionRouter);
+app.use("/api", callbackRouter);
 
 app.listen(process.env.PORT || 8000, (err) => {
     console.log("Server is running");

@@ -24,8 +24,7 @@ document.getElementById("key-form").addEventListener("submit", async function (e
         console.log(result);
         if (result.status == "Success") {
             document.getElementById("submit-button").innerText = "Update";
-            enableAllField();
-            alert("Successfully Update!");
+            window.location.href = result?.redirectUrl;
         } else if (result.status == "Failed") {
             disableAllField();
             return showError(result.message);
