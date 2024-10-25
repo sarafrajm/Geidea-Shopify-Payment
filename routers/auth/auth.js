@@ -1,14 +1,14 @@
 const express = require("express");
 const crypto = require("crypto");
 const { insertOrUpdateAuthData, getAuthData, insertOrUpdateOAuthData, insertOrUpdateTokenData, getTokenData, insertOrUpdateMerchantData, getMerchantData } = require("../../db-operation/db");
-const { createSignature, validateSignature } = require('../../utils/utils');
+const { createSignature, validateSignature, callGraphqlApi } = require("../../utils/utils");
 
 const router = new express.Router();
 
 function createQueryString(params) {
     return Object.keys(params)
         .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-        .join('&');
+        .join("&");
 }
 
 const secureCompare = (digest, hash) => {
@@ -22,7 +22,7 @@ const secureCompare = (digest, hash) => {
     return result === 0;
 };
 
-router.get('/auth', async (req, res) => {
+router.get("/auth", async (req, res) => {
     if (!req.query || !req.query.hmac || !req.query.shop) {
         return res.status(400).json({
             status: "Failed",
@@ -33,9 +33,9 @@ router.get('/auth', async (req, res) => {
     const requiredqueryString = createQueryString(requiredQuery);
     const secret = process.env.SHOPIFY_API_SECRET;
     const digest = crypto
-        .createHmac('sha256', secret)
+        .createHmac("sha256", secret)
         .update(requiredqueryString)
-        .digest('hex');
+        .digest("hex");
     const isValid = secureCompare(digest, hmac);
 
     if (!isValid) {
@@ -47,7 +47,7 @@ router.get('/auth', async (req, res) => {
     const shop = req.query.shop;
     const client_id = process.env.SHOPIFY_API_KEY;
     const scopes = process.env.SHOPIFY_API_SCOPES;
-    const redirect_uri = req.protocol + '://' + req.get('host') + "/api/oauth";
+    const redirect_uri = req.protocol + "://" + req.get("host") + "/api/oauth";
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
     if (!(await insertOrUpdateAuthData({ ...req.query, state: nonce }))) {
         return res.status(400).json({
@@ -59,7 +59,7 @@ router.get('/auth', async (req, res) => {
     res.redirect(redirectUrl);
 });
 
-router.get('/oauth', async (req, res) => {
+router.get("/oauth", async (req, res) => {
     if (!req.query || !req.query.hmac || !req.query.shop || !req.query.state || !req.query.code) {
         return res.status(400).json({
             status: "Failed",
@@ -78,9 +78,9 @@ router.get('/oauth', async (req, res) => {
     const requiredqueryString = createQueryString(requiredQuery);
     const secret = process.env.SHOPIFY_API_SECRET;
     const digest = crypto
-        .createHmac('sha256', secret)
+        .createHmac("sha256", secret)
         .update(requiredqueryString)
-        .digest('hex');
+        .digest("hex");
     const isValid = secureCompare(digest, hmac);
 
     if (!isValid) {
@@ -128,10 +128,10 @@ router.get('/oauth', async (req, res) => {
         })
     }
 
-    res.redirect(`${req.protocol + '://' + req.get('host')}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
+    res.redirect(`${req.protocol + "://" + req.get("host")}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
 });
 
-router.get('/onboard', async (req, res) => {
+router.get("/onboard", async (req, res) => {
     if (!req.query || !req.query.shop || !req.query.state || !req.query.signature) {
         return res.status(400).json({
             status: "Failed",
@@ -172,7 +172,7 @@ router.get('/onboard', async (req, res) => {
     })
 });
 
-router.post('/onboard', async (req, res) => {
+router.post("/onboard", async (req, res) => {
     if (!req.query || !req.body || !req.query.shop || !req.query.state || !req.query.signature || !req.body.region || !req.body.publicKey || !req.body.secretKey) {
         return res.status(400).json({
             status: "Failed",
@@ -204,17 +204,60 @@ router.post('/onboard', async (req, res) => {
         secretKey: req.body.secretKey,
         state: req.query.state
     })) {
-        return res.json({
-            status: "Success",
-            region: req.body.region,
-            publicKey: req.body.publicKey,
-            secretKey: req.body.secretKey
-        })
+        const graphqlQuery = `
+        mutation paymentsAppConfigure($ready: Boolean!, $externalHandle: String!) {
+            paymentsAppConfigure(ready: $ready, externalHandle: $externalHandle) {
+                paymentsAppConfiguration {
+                    externalHandle
+                    ready
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+    `;
+
+        const graphqlVariables = {
+            "ready": true,
+            "externalHandle": process.env.SHOPIFY_EXTERNAL_HANDLE
+        }
+
+        const [isSuccess, result] = await callGraphqlApi(req.query.shop, tokenData.access_token, graphqlQuery, graphqlVariables);
+        if (isSuccess) {
+            if (result.data?.paymentsAppConfigure?.paymentsAppConfiguration) {
+                console.log(result.data?.paymentsAppConfigure?.paymentsAppConfiguration);
+                const redirectUrl = `https://${req.query.shop}/services/payments_partners/gateways/${process.env.SHOPIFY_API_KEY}/settings`;
+                return res.json({
+                    status: "Success",
+                    region: req.body.region,
+                    publicKey: req.body.publicKey,
+                    secretKey: req.body.secretKey,
+                    redirectUrl: redirectUrl
+                });
+            } else if (result.data?.paymentsAppConfigure?.userErrors?.length > 0) {
+                console.error(result.data?.paymentsAppConfigure?.userErrors);
+                return res.status(400).json({
+                    status: "Failed",
+                    message: result.data?.paymentsAppConfigure?.userErrors?.[0]?.message
+                })
+            } else {
+                console.error("paymentsAppConfigure Graphql Error");
+            }
+        } else {
+            console.error(result);
+        }
+
+        return res.status(400).json({
+            status: "Failed",
+            message: "Error on paymentsAppConfigure"
+        });
     } else {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
-        })
+        });
     }
 });
 

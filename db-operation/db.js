@@ -1,11 +1,11 @@
-const mysql = require('mysql2/promise');
+const mysql = require("mysql2/promise");
 
 async function createConnection() {
     return mysql.createConnection({
-        host: 'localhost',    // Your database host
-        user: 'root',         // Your database user
-        password: '',         // Your database password
-        database: 'shopify'    // Your database name
+        host: "localhost",    // Your database host
+        user: "root",         // Your database user
+        password: "",         // Your database password
+        database: "shopify"    // Your database name
     });
 }
 
@@ -67,11 +67,11 @@ const connectDB = async () => {
 async function insertAuthData(data) {
     const db = await createConnection();
 
-    const hmac = data.hmac || '';
-    const host = data.host || '';
-    const shop = data.shop || '';
-    const state = data.state || '';
-    const timestamp = data.timestamp || '';
+    const hmac = data.hmac || "";
+    const host = data.host || "";
+    const shop = data.shop || "";
+    const state = data.state || "";
+    const timestamp = data.timestamp || "";
 
     const query = `INSERT INTO auth (hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?)`;
 
@@ -79,7 +79,7 @@ async function insertAuthData(data) {
         await db.execute(query, [hmac, host, shop, state, timestamp]);
         db.end();
     } catch (err) {
-        console.error('Error inserting data:', err);
+        console.error("Error inserting data:", err);
         db.end();
         return false;
     }
@@ -88,11 +88,11 @@ async function insertAuthData(data) {
 async function insertOrUpdateAuthData(data) {
     const db = await createConnection();
 
-    const hmac = data.hmac || '';
-    const host = data.host || '';
-    const shop = data.shop || '';
-    const state = data.state || '';
-    const timestamp = data.timestamp || '';
+    const hmac = data.hmac || "";
+    const host = data.host || "";
+    const shop = data.shop || "";
+    const state = data.state || "";
+    const timestamp = data.timestamp || "";
 
     const checkQuery = `SELECT COUNT(*) as count FROM auth WHERE shop = ?`;
     const insertQuery = `INSERT INTO auth (hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?)`;
@@ -109,7 +109,7 @@ async function insertOrUpdateAuthData(data) {
 
         db.end();
     } catch (err) {
-        console.error('Error inserting or updating data:', err);
+        console.error("Error inserting or updating data:", err);
         db.end();
         return false;
     }
@@ -139,7 +139,7 @@ async function getAuthData(shop, state) {
             return false;
         }
     } catch (err) {
-        console.error('Error getting data:', err);
+        console.error("Error getting data:", err);
         db.end();
         return false;
     }
@@ -148,12 +148,12 @@ async function getAuthData(shop, state) {
 async function insertOAuthData(data) {
     const db = await createConnection();
 
-    const code = data.code || '';
-    const hmac = data.hmac || '';
-    const host = data.host || '';
-    const shop = data.shop || '';
-    const state = data.state || '';
-    const timestamp = data.timestamp || '';
+    const code = data.code || "";
+    const hmac = data.hmac || "";
+    const host = data.host || "";
+    const shop = data.shop || "";
+    const state = data.state || "";
+    const timestamp = data.timestamp || "";
 
     const query = `INSERT INTO oauth (code, hmac, host, shop, state, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
 
@@ -161,7 +161,7 @@ async function insertOAuthData(data) {
         await db.execute(query, [code, hmac, host, shop, state, timestamp]);
         db.end();
     } catch (err) {
-        console.error('Error inserting data:', err);
+        console.error("Error inserting data:", err);
         db.end();
         return false
     }
@@ -171,12 +171,12 @@ async function insertOAuthData(data) {
 async function insertOrUpdateOAuthData(data) {
     const db = await createConnection();
 
-    const code = data.code || '';
-    const hmac = data.hmac || '';
-    const host = data.host || '';
-    const shop = data.shop || '';
-    const state = data.state || '';
-    const timestamp = data.timestamp || '';
+    const code = data.code || "";
+    const hmac = data.hmac || "";
+    const host = data.host || "";
+    const shop = data.shop || "";
+    const state = data.state || "";
+    const timestamp = data.timestamp || "";
 
     const checkQuery = `SELECT COUNT(*) as count FROM oauth WHERE shop = ?`;
 
@@ -194,7 +194,7 @@ async function insertOrUpdateOAuthData(data) {
 
         db.end();
     } catch (err) {
-        console.error('Error inserting or updating data:', err);
+        console.error("Error inserting or updating data:", err);
         db.end();
         return false;
     }
@@ -205,12 +205,12 @@ async function insertOrUpdateOAuthData(data) {
 async function insertTokenData(data) {
     const db = await createConnection();
 
-    const shop = data.shop || '';
-    const access_token = data.access_token || '';
-    const scope = data.scope || '';
-    const state = data.state || '';
-    const signature = data.signature || '';
-    const timestamp = data.timestamp || '';
+    const shop = data.shop || "";
+    const access_token = data.access_token || "";
+    const scope = data.scope || "";
+    const state = data.state || "";
+    const signature = data.signature || "";
+    const timestamp = data.timestamp || "";
 
     const query = `INSERT INTO token (shop, access_token, scope, state, signature, timestamp) VALUES (?, ?, ?, ?, ?, ?)`;
 
@@ -218,7 +218,7 @@ async function insertTokenData(data) {
         await db.execute(query, [shop, access_token, scope, state, signature, timestamp]);
         db.end();
     } catch (err) {
-        console.error('Error inserting data:', err);
+        console.error("Error inserting data:", err);
         db.end();
         return false;
     }
@@ -228,12 +228,12 @@ async function insertTokenData(data) {
 async function insertOrUpdateTokenData(data) {
     const db = await createConnection();
 
-    const shop = data.shop || '';
-    const access_token = data.access_token || '';
-    const scope = data.scope || '';
-    const state = data.state || '';
-    const signature = data.signature || '';
-    const timestamp = data.timestamp || '';
+    const shop = data.shop || "";
+    const access_token = data.access_token || "";
+    const scope = data.scope || "";
+    const state = data.state || "";
+    const signature = data.signature || "";
+    const timestamp = data.timestamp || "";
 
     const checkQuery = `SELECT COUNT(*) as count FROM token WHERE shop = ?`;
 
@@ -251,7 +251,7 @@ async function insertOrUpdateTokenData(data) {
 
         db.end();
     } catch (err) {
-        console.error('Error inserting or updating data:', err);
+        console.error("Error inserting or updating data:", err);
         db.end();
         return false;
     }
@@ -283,7 +283,7 @@ async function getTokenData(shop, state, signature) {
             return false;
         }
     } catch (err) {
-        console.error('Error getting data:', err);
+        console.error("Error getting data:", err);
         db.end();
         return false;
     }
@@ -292,13 +292,13 @@ async function getTokenData(shop, state, signature) {
 async function insertMerchantData(data) {
     const db = await createConnection();
 
-    const shop = data.shop || '';
-    const access_token = data.access_token || '';
-    const scope = data.scope || '';
-    const region = data.region || '';
-    const publicKey = data.publicKey || '';
-    const secretKey = data.secretKey || '';
-    const state = data.state || '';
+    const shop = data.shop || "";
+    const access_token = data.access_token || "";
+    const scope = data.scope || "";
+    const region = data.region || "";
+    const publicKey = data.publicKey || "";
+    const secretKey = data.secretKey || "";
+    const state = data.state || "";
 
     const query = `INSERT INTO merchants (shop, access_token, scope, region, publicKey, secretKey, state) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
@@ -306,7 +306,7 @@ async function insertMerchantData(data) {
         await db.execute(query, [shop, access_token, scope, region, publicKey, secretKey, state]);
         db.end();
     } catch (err) {
-        console.error('Error inserting data:', err);
+        console.error("Error inserting data:", err);
         db.end();
         return false;
     }
@@ -316,13 +316,13 @@ async function insertMerchantData(data) {
 async function insertOrUpdateMerchantData(data) {
     const db = await createConnection();
 
-    const shop = data.shop || '';
-    const access_token = data.access_token || '';
-    const scope = data.scope || '';
-    const region = data.region || '';
-    const publicKey = data.publicKey || '';
-    const secretKey = data.secretKey || '';
-    const state = data.state || '';
+    const shop = data.shop || "";
+    const access_token = data.access_token || "";
+    const scope = data.scope || "";
+    const region = data.region || "";
+    const publicKey = data.publicKey || "";
+    const secretKey = data.secretKey || "";
+    const state = data.state || "";
 
     const checkQuery = `SELECT COUNT(*) as count FROM merchants WHERE shop = ?`;
 
@@ -340,7 +340,7 @@ async function insertOrUpdateMerchantData(data) {
 
         db.end();
     } catch (err) {
-        console.error('Error inserting or updating data:', err);
+        console.error("Error inserting or updating data:", err);
         db.end();
         return false;
     }
@@ -372,7 +372,7 @@ async function getMerchantData(shop) {
             return false;
         }
     } catch (err) {
-        console.error('Error getting data:', err);
+        console.error("Error getting data:", err);
         db.end();
         return false;
     }

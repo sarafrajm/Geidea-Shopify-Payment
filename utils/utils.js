@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const crypto = require("crypto");
 
 function maskInput(input) {
     if (input.length <= 8) {
@@ -6,7 +6,7 @@ function maskInput(input) {
     }
     const firstPart = input.slice(0, 3);
     const lastPart = input.slice(-5);
-    const maskedPart = '*'.repeat(input.length - 8);
+    const maskedPart = "*".repeat(input.length - 8);
     return firstPart + maskedPart + lastPart;
 }
 
@@ -16,9 +16,9 @@ function createSignature(data, secretKey) {
     const payload = `${data}|${timestamp}`;
 
     const signature = crypto
-        .createHmac('sha256', secretKey)
+        .createHmac("sha256", secretKey)
         .update(payload)
-        .digest('hex');
+        .digest("hex");
 
     return { signature, timestamp };
 }
@@ -33,9 +33,9 @@ function validateSignature(data, secretKey, signature, timestamp) {
 
     const payload = `${data}|${timestamp}`;
     const validSignature = crypto
-        .createHmac('sha256', secretKey)
+        .createHmac("sha256", secretKey)
         .update(payload)
-        .digest('hex');
+        .digest("hex");
 
     return validSignature === signature;
 }
@@ -46,7 +46,7 @@ function getFormatedDate() {
     const month = String(now.getMonth() + 1);
     const day = String(now.getDate());
     const year = String(now.getFullYear());
-    const timestamp = `${month}/${day}/${year} ${now.toLocaleTimeString('en-US', { hour12: true })}`;
+    const timestamp = `${month}/${day}/${year} ${now.toLocaleTimeString("en-US", { hour12: true })}`;
     return timestamp;
 }
 
@@ -60,4 +60,29 @@ function formatName(name1, name2) {
     return null;
 }
 
-module.exports = { createSignature, validateSignature, maskInput, getFormatedDate, formatName };
+async function callGraphqlApi(shopDomain, accessToken, graphqlQuery, graphqlVariables) {
+    const url = `https://${shopDomain}/payments_apps/api/2022-10/graphql.json`;
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Shopify-Access-Token": accessToken
+            },
+            body: JSON.stringify({
+                query: graphqlQuery,
+                variables: graphqlVariables
+            })
+        });
+
+        const result = await response.json();
+        return [true, result];
+    } catch (error) {
+        console.error("Error Calling Graphpql Api: ", error);
+        return [false, "Error Calling Graphpql Api"]
+    }
+
+
+}
+
+module.exports = { createSignature, validateSignature, maskInput, getFormatedDate, formatName, callGraphqlApi };
