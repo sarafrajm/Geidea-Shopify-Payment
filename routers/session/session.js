@@ -24,12 +24,9 @@ router.post("/session", async (req, res) => {
         })
     }
     const createSessionUrl = getCreteSessionUrl(merchantData.region);
-    req.protocol = "https";
-    const callbackUrl = `${"https"}://${req.get("host")}/api/callback`;
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const callbackUrl = `${"https"}://${req.get("host")}/api/callback?nonce=${nonce}`;
     const returnUrl = `${"https"}://${req.get("host")}/api/callback?nonce=${nonce}`;
-    // const callbackUrl = "https://webhook.site/43fdd08e-5f86-43d0-962c-7ff15edb2829";  // Will update
-
     const merchantPublicKey = merchantData.publicKey;
     const amount = String(parseFloat(requestBody.amount).toFixed(2));
     const currency = requestBody.currency;

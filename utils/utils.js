@@ -61,7 +61,7 @@ function formatName(name1, name2) {
 }
 
 async function callGraphqlApi(shopDomain, accessToken, graphqlQuery, graphqlVariables) {
-    const url = `https://${shopDomain}/payments_apps/api/2022-10/graphql.json`;
+    const url = `https://${shopDomain}/payments_apps/api/2024-10/graphql.json`;
     try {
         const response = await fetch(url, {
             method: "POST",

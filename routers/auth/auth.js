@@ -47,7 +47,7 @@ router.get("/auth", async (req, res) => {
     const shop = req.query.shop;
     const client_id = process.env.SHOPIFY_API_KEY;
     const scopes = process.env.SHOPIFY_API_SCOPES;
-    const redirect_uri = req.protocol + "://" + req.get("host") + "/api/oauth";
+    const redirect_uri = "https" + "://" + req.get("host") + "/api/oauth";
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
     if (!(await insertOrUpdateAuthData({ ...req.query, state: nonce }))) {
         return res.status(400).json({
@@ -128,7 +128,7 @@ router.get("/oauth", async (req, res) => {
         })
     }
 
-    res.redirect(`${req.protocol + "://" + req.get("host")}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
+    res.redirect(`${"https" + "://" + req.get("host")}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
 });
 
 router.get("/onboard", async (req, res) => {
