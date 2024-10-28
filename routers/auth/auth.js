@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { insertOrUpdateAuthData, getAuthData, insertOrUpdateOAuthData, insertOrUpdateTokenData, getTokenData, insertOrUpdateMerchantData, getMerchantData } = require("../../db-operation/db");
 const { createSignature, validateSignature, callGraphqlApi } = require("../../utils/utils");
+const { getMerchnatConfig } = require("../../utils/region");
 
 const router = new express.Router();
 
@@ -27,7 +28,7 @@ router.get("/auth", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
-        })
+        });
     }
     const { hmac, ...requiredQuery } = req.query;
     const requiredqueryString = createQueryString(requiredQuery);
@@ -42,7 +43,7 @@ router.get("/auth", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid hmac"
-        })
+        });
     }
     const shop = req.query.shop;
     const client_id = process.env.SHOPIFY_API_KEY;
@@ -53,7 +54,7 @@ router.get("/auth", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
-        })
+        });
     }
     const redirectUrl = `https://${shop}/admin/oauth/authorize?client_id=${client_id}&scope=${scopes}&redirect_uri=${redirect_uri}&state=${nonce}`;
     res.redirect(redirectUrl);
@@ -64,14 +65,14 @@ router.get("/oauth", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
-        })
+        });
     }
 
     if (!(await getAuthData(req.query.shop, req.query.state))) {
         return res.status(404).json({
             status: "Failed",
             message: "Data not found"
-        })
+        });
     }
 
     const { hmac, ...requiredQuery } = req.query;
@@ -87,21 +88,21 @@ router.get("/oauth", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid hmac"
-        })
+        });
     }
 
     if (!isValidShopifyURL(req.query.shop)) {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Shop Url"
-        })
+        });
     }
 
     if (!(await insertOrUpdateOAuthData(req.query))) {
         return res.status(400).json({
             status: "Failed",
             message: "Error on Data Insert"
-        })
+        });
     }
 
     const shop = req.query.shop;
@@ -112,20 +113,20 @@ router.get("/oauth", async (req, res) => {
     try {
         const jsonData = await fetch(`https://${shop}/admin/oauth/access_token?client_id=${client_id}&client_secret=${client_secret}&code=${authorization_code}`, {
             method: "POST"
-        })
+        });
         const data = await jsonData.json();
 
         if (!(await insertOrUpdateTokenData({ ...data, shop: shop, state: req.query.state, signature: signature, timestamp: timestamp }))) {
             return res.status(400).json({
                 status: "Failed",
                 message: "Error on Data Insert"
-            })
+            });
         }
     } catch (e) {
         return res.status(500).json({
             status: "Failed",
             message: "Internal Server Error"
-        })
+        });
     }
 
     res.redirect(`${"https" + "://" + req.get("host")}?shop=${shop}&state=${req.query.state}&signature=${signature}`);
@@ -136,7 +137,7 @@ router.get("/onboard", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
-        })
+        });
     }
 
     const tokenData = await getTokenData(req.query.shop, req.query.state, req.query.signature);
@@ -145,14 +146,14 @@ router.get("/onboard", async (req, res) => {
         return res.status(404).json({
             status: "Failed",
             message: "Invalid Request"
-        })
+        });
     }
 
-    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, tokenData.signature, tokenData.timestamp)) {
+    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, req.query.signature, tokenData.timestamp)) {
         return res.status(400).json({
             status: "Failed",
             message: "Session Expire"
-        })
+        });
     }
 
     const merchantData = await getMerchantData(req.query.shop);
@@ -161,7 +162,7 @@ router.get("/onboard", async (req, res) => {
         return res.json({
             status: "Success",
             message: "Data not found"
-        })
+        });
     }
 
     return res.json({
@@ -169,7 +170,7 @@ router.get("/onboard", async (req, res) => {
         region: merchantData.region,
         publicKey: merchantData.publicKey,
         secretKey: merchantData.secretKey
-    })
+    });
 });
 
 router.post("/onboard", async (req, res) => {
@@ -177,7 +178,7 @@ router.post("/onboard", async (req, res) => {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Query"
-        })
+        });
     }
 
     const tokenData = await getTokenData(req.query.shop, req.query.state, req.query.signature);
@@ -185,14 +186,21 @@ router.post("/onboard", async (req, res) => {
         return res.status(404).json({
             status: "Failed",
             message: "Invalid Request"
-        })
+        });
     }
 
-    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, tokenData.signature, tokenData.timestamp)) {
+    if (!validateSignature(tokenData.state, process.env.SHOPIFY_API_SECRET, req.query.signature, tokenData.timestamp)) {
         return res.status(400).json({
             status: "Failed",
             message: "Session Expire"
-        })
+        });
+    }
+
+    if (! await getMerchnatConfig(req.body.region, req.body.publicKey)) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Invalid Merchant"
+        });
     }
 
     if (await insertOrUpdateMerchantData({
@@ -227,7 +235,6 @@ router.post("/onboard", async (req, res) => {
         const [isSuccess, result] = await callGraphqlApi(req.query.shop, tokenData.access_token, graphqlQuery, graphqlVariables);
         if (isSuccess) {
             if (result.data?.paymentsAppConfigure?.paymentsAppConfiguration) {
-                console.log(result.data?.paymentsAppConfigure?.paymentsAppConfiguration);
                 const redirectUrl = `https://${req.query.shop}/services/payments_partners/gateways/${process.env.SHOPIFY_API_KEY}/settings`;
                 return res.json({
                     status: "Success",
@@ -241,7 +248,7 @@ router.post("/onboard", async (req, res) => {
                 return res.status(400).json({
                     status: "Failed",
                     message: result.data?.paymentsAppConfigure?.userErrors?.[0]?.message
-                })
+                });
             } else {
                 console.error("paymentsAppConfigure Graphql Error");
             }

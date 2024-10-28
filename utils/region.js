@@ -11,6 +11,31 @@ function getCreteSessionUrl(region) {
     return createSessionUrl;
 }
 
+// https://api.merchant.geidea.net/pgw/api/v1/config
+
+async function getMerchnatConfig(region, merchnatId) {
+    let configUrl;
+    if (region === "EGY") {
+        configUrl = `https://api.merchant.geidea.net/pgw/api/v1/config/${merchnatId}`;
+    } else if (region === "UAE") {
+        configUrl = `https://api.geidea.ae/pgw/api/v1/config/${merchnatId}`;
+    } else if (region === "KSA") {
+        configUrl = `https://api.ksamerchant.geidea.net/pgw/api/v1/config/${merchnatId}`;
+    }
+    try {
+        const response = await fetch(configUrl);
+        const result = await response.json();
+        if (result?.currencies) {
+            return result;
+        } else {
+            return false;
+        }
+    } catch (err) {
+        console.error("Error while checking merchnat config : ", err);
+        return false;
+    }
+}
+
 function getHppUrl(region, sessionId) {
     let hppUrl;
     if (region === "EGY") {
@@ -23,4 +48,4 @@ function getHppUrl(region, sessionId) {
     return hppUrl;
 }
 
-module.exports = { getCreteSessionUrl, getHppUrl };
+module.exports = { getCreteSessionUrl, getHppUrl, getMerchnatConfig };

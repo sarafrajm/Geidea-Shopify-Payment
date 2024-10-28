@@ -26,6 +26,9 @@ document.getElementById("key-form").addEventListener("submit", async function (e
             document.getElementById("submit-button").innerText = "Update";
             window.location.href = result?.redirectUrl;
         } else if (result.status == "Failed") {
+            if (result.message === "Invalid Merchant") {
+                return alert(result.message);
+            }
             disableAllField();
             return showError(result.message);
         }
