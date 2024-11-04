@@ -61,7 +61,8 @@ const connectDB = async () => {
     shopify_session_id VARCHAR(255) NOT NULL,
     shopify_cancel_url VARCHAR(255) NOT NULL,
     sessionId VARCHAR(255) NOT NULL,
-    nonce VARCHAR(255) NOT NULL
+    nonce VARCHAR(255) NOT NULL,
+    orderId VARCHAR(255) NULL
   );`
 
     try {
@@ -338,6 +339,20 @@ async function insertOrUpdatePaymentData(data) {
     return true;
 }
 
+async function upateOrderIdForPayment(sessionId, nonce, orderId) {
+    const db = await createConnection();
+    const updateQuery = `UPDATE payments SET orderId = ? WHERE sessionId = ? AND nonce = ?`;
+    try {
+        await db.execute(updateQuery, [orderId, sessionId, nonce]);
+        db.end();
+    } catch (err) {
+        console.error("Error updating order:", err);
+        db.end();
+        return false;
+    }
+    return true;
+}
+
 async function getPaymentData(sessionId, nonce) {
     const db = await createConnection();
 
@@ -355,7 +370,8 @@ async function getPaymentData(sessionId, nonce) {
                 shopify_session_id: results[0].shopify_session_id,
                 shopify_cancel_url: results[0].shopify_cancel_url,
                 sessionId: results[0].sessionId,
-                nonce: results[0].nonce
+                nonce: results[0].nonce,
+                orderId: results[0].orderId
             };
             db.end();
             return response;
@@ -365,6 +381,39 @@ async function getPaymentData(sessionId, nonce) {
         }
     } catch (err) {
         console.error("Error getting data:", err);
+        db.end();
+        return false;
+    }
+}
+
+async function getPaymentDataByShopifyPaymentId(shopify_id) {
+    const db = await createConnection();
+
+    const query = `SELECT * FROM payments WHERE shopify_id = ?`;
+
+    try {
+        const [results] = await db.execute(query, [shopify_id]);
+        if (results.length > 0) {
+            const response = {
+                id: results[0].id,
+                shop: results[0].shop,
+                access_token: results[0].access_token,
+                shopify_id: results[0].shopify_id,
+                shopify_gid: results[0].shopify_gid,
+                shopify_session_id: results[0].shopify_session_id,
+                shopify_cancel_url: results[0].shopify_cancel_url,
+                sessionId: results[0].sessionId,
+                nonce: results[0].nonce,
+                orderId: results[0].orderId
+            };
+            db.end();
+            return response;
+        } else {
+            db.end();
+            return false;
+        }
+    } catch (err) {
+        console.error("Error getting shopify payment data:", err);
         db.end();
         return false;
     }
@@ -380,5 +429,7 @@ module.exports = {
     insertOrUpdateMerchantData,
     getMerchantData,
     insertOrUpdatePaymentData,
-    getPaymentData
+    upateOrderIdForPayment,
+    getPaymentData,
+    getPaymentDataByShopifyPaymentId
 };

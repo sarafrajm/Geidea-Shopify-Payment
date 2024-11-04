@@ -1,7 +1,7 @@
 const express = require("express");
-const { getMerchantData, insertOrUpdatePaymentData } = require("../../db-operation/db");
-const { getCreteSessionUrl, getHppUrl } = require("../../utils/region");
-const { getFormatedDate, formatName, converCountryCode2DigitTo3Digit } = require("../../utils/utils");
+const { getMerchantData, insertOrUpdatePaymentData, getPaymentDataByShopifyPaymentId } = require("../../db-operation/db");
+const { getCreteSessionUrl, getHppUrl, getRefundUrl } = require("../../utils/region");
+const { getFormatedDate, formatName, converCountryCode2DigitTo3Digit, callGraphqlApi } = require("../../utils/utils");
 const router = new express.Router();
 
 router.post("/session", async (req, res) => {
@@ -9,11 +9,11 @@ router.post("/session", async (req, res) => {
     const ShopifyRequestId = req.get("Shopify-Request-Id");
     const ShopifyApiVersion = req.get("Shopify-Api-Version");
     const requestBody = req.body;
-    if (!ShopifyShopDomain, !ShopifyApiVersion) {
+    if (!ShopifyShopDomain || !ShopifyApiVersion || !requestBody) {
         return res.status(400).json({
             status: "Failed",
             message: "Invalid Request"
-        })
+        });
     }
 
     const merchantData = await getMerchantData(ShopifyShopDomain);
@@ -21,7 +21,7 @@ router.post("/session", async (req, res) => {
         return res.status(404).json({
             status: "Failed",
             message: "Invalid Merchant"
-        })
+        });
     }
     const createSessionUrl = getCreteSessionUrl(merchantData.region);
     const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -138,5 +138,162 @@ router.post("/session", async (req, res) => {
         res.status(response.status).json(result);
     }
 })
+
+router.post("/session/refund", async (req, res) => {
+    if (!req.body.payment_id || !req.body.amount || !req.body.gid) {
+        return res.status(400).json({
+            status: "Failed",
+            message: "Invalid Request"
+        });
+    }
+    const data = await getPaymentDataByShopifyPaymentId(req.body.payment_id);
+    if (!data) {
+        return res.status(404).json({
+            status: "Failed",
+            message: "Invalid Payment Id"
+        });
+    }
+    const merchantData = await getMerchantData(data.shop);
+    if (!merchantData) {
+        return res.status(404).json({
+            status: "Failed",
+            message: "Invalid Merchant"
+        });
+    }
+    const refundUrl = getRefundUrl(merchantData.region);
+    const merchantPublicKey = merchantData.publicKey;
+    const merchantSecretKey = merchantData.secretKey;
+    const nonce = data.nonce;
+    const callbackUrl = `${"https"}://${req.get("host")}/api/callback?nonce=${nonce}`;
+    const orderId = data.orderId;
+    const refundAmount = req.body.amount;
+    const timestamp = getFormatedDate();
+
+    // Generate Signature
+    const strData = timestamp + merchantPublicKey + refundAmount + orderId;
+    const hash = require("crypto-js").HmacSHA256(strData, merchantSecretKey);
+    const signature = require("crypto-js").enc.Base64.stringify(hash);
+
+    const refundData = {
+        "orderId": orderId,
+        "callbackUrl": callbackUrl,
+        "refundAmount": refundAmount,
+        "timestamp": timestamp,
+        "signature": signature
+    }
+
+    const credentials = `${merchantData.publicKey}:${merchantData.secretKey}`;
+    const response = await fetch(refundUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Basic ${btoa(credentials)}`
+        },
+        body: JSON.stringify(refundData)
+    });
+    const result = await response.json();
+    if (response.status == 200 && result.responseMessage.includes("Success")) {
+        const graphqlQuery = `
+            mutation refundSessionResolve($id: ID!) {
+                refundSessionResolve(id: $id) {
+                    refundSession {
+                        id
+                        state {
+                            __typename
+                            ... on RefundSessionStateRejected {
+                                code
+                                merchantMessage
+                                reason
+                            }
+                            ... on RefundSessionStateResolved {
+                                code
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        `;
+        const graphqlVariables = {
+            "id": req.body.gid
+        }
+        const [isSuccess, graphQlResult] = await callGraphqlApi(data.shop, data.access_token, graphqlQuery, graphqlVariables);
+        if (isSuccess) {
+            return res.status(201).json({});
+        } else {
+            return res.status(500).json({
+                "status": "Failed",
+                "message": "Something went wrong!"
+            });
+        }
+    } else {
+        const graphqlQuery = `
+            mutation refundSessionReject(
+                $id: ID!
+                $reason: RefundSessionRejectionReasonInput!
+            ) {
+                refundSessionReject(id: $id, reason: $reason) {
+                    refundSession {
+                        id
+                        state {
+                            __typename
+                            ... on RefundSessionStateRejected {
+                                code
+                                merchantMessage
+                                reason
+                            }
+                            ... on RefundSessionStateResolved {
+                                code
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        `;
+        const graphqlVariables = {
+            "id": req.body.gid,
+            "reason": {
+                "code": "PROCESSING_ERROR",
+                "merchantMessage": result.detailedResponseMessage || "Internal Error"
+            }
+        }
+        const [isSuccess, graphQlResult] = await callGraphqlApi(data.shop, data.access_token, graphqlQuery, graphqlVariables);
+        if (isSuccess) {
+            return res.status(201).json({});
+        } else {
+            return res.status(500).json({
+                "status": "Failed",
+                "message": "Something went wrong!"
+            });
+        }
+    }
+});
+
+router.post("/session/capture", async (req, res) => {
+    console.log('capture');
+    console.log(req.body);
+    console.log(req.query);
+    return res.status(401).json({
+        "status": "Failed",
+        "message": "Not Found"
+    });
+});
+
+router.post("/session/void", async (req, res) => {
+    console.log('void');
+    console.log(req.body);
+    console.log(req.query);
+    return res.status(401).json({
+        "status": "Failed",
+        "message": "Not Found"
+    });
+});
 
 module.exports = router;

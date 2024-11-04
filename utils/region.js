@@ -48,4 +48,16 @@ function getHppUrl(region, sessionId) {
     return hppUrl;
 }
 
-module.exports = { getCreteSessionUrl, getHppUrl, getMerchnatConfig };
+function getRefundUrl(region) {
+    let refundUrl;
+    if (region === "EGY") {
+        refundUrl = "https://api.merchant.geidea.net/pgw/api/v2/direct/refund";
+    } else if (region === "UAE") {
+        refundUrl = "https://api.geidea.ae/pgw/api/v2/direct/refund";
+    } else if (region === "KSA") {
+        refundUrl = "https://api.ksamerchant.geidea.net/pgw/api/v2/direct/refund";
+    }
+    return refundUrl;
+}
+
+module.exports = { getCreteSessionUrl, getHppUrl, getMerchnatConfig, getRefundUrl };

@@ -1,5 +1,5 @@
 const express = require("express");
-const { getMerchantData, getPaymentData } = require("../../db-operation/db");
+const { upateOrderIdForPayment, getPaymentData } = require("../../db-operation/db");
 const { callGraphqlApi } = require("../../utils/utils");
 const router = new express.Router();
 
@@ -20,6 +20,12 @@ router.post("/callback", async (req, res) => {
     }
 
     if (req.body.order?.status == "Success" && req.body.order?.detailedStatus == "Paid") {
+        if (! await upateOrderIdForPayment(order.sessionId, req.query.nonce, order.orderId)) {
+            return res.status(500).json({
+                status: "Failed",
+                message: "Server Error"
+            });
+        }
         const graphqlQuery = `
             mutation paymentSessionResolve($id: ID!, $networkTransactionId: String!) {
                 paymentSessionResolve(id: $id, networkTransactionId: $networkTransactionId) {
@@ -72,7 +78,6 @@ router.post("/callback", async (req, res) => {
         }
 
         const [isSuccess, result] = await callGraphqlApi(data.shop, data.access_token, graphqlQuery, graphqlVariables);
-        console.log(JSON.stringify(result));
 
         if (isSuccess) {
             return res.status(200).json({
@@ -86,7 +91,6 @@ router.post("/callback", async (req, res) => {
             });
         }
     } else {
-        console.log(req.body);
         return res.status(200).json({
             "status": "Success",
             "message": "Order Not Updated"
@@ -114,6 +118,12 @@ router.get("/callback", async (req, res) => {
 
 
     if (req.query.responseMessage == "Success") {
+        if (! await upateOrderIdForPayment(req.query.sessionId, req.query.nonce, req.query?.orderId)) {
+            return res.status(500).json({
+                status: "Failed",
+                message: "Internal Server Error!"
+            });
+        }
         const graphqlQuery = `
             mutation paymentSessionResolve($id: ID!, $networkTransactionId: String!) {
                 paymentSessionResolve(id: $id, networkTransactionId: $networkTransactionId) {
@@ -175,12 +185,11 @@ router.get("/callback", async (req, res) => {
                     "status": "Failed",
                     "message": result?.data?.paymentSessionResolve?.userErrors?.[0]?.message
                 });
+            } else {
+                return res.status(200).redirect(data.shopify_cancel_url);
             }
         } else {
-            return res.status(500).json({
-                "status": "Failed",
-                "message": "Something went wrong!"
-            });
+            return res.status(200).redirect(data.shopify_cancel_url);
         }
     }
 
